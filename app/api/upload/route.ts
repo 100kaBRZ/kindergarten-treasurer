@@ -10,11 +10,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    // Генерируем уникальное имя файла
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-    // Загружаем в Supabase Storage
     const { data, error } = await supabase
       .storage
       .from('receipts')
@@ -23,9 +21,11 @@ export async function POST(request: Request) {
         upsert: false
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase storage error:', error);
+      throw error;
+    }
 
-    // Получаем публичную ссылку
     const { data: { publicUrl } } = supabase
       .storage
       .from('receipts')
