@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Wallet, TrendingUp, TrendingDown, Download, PlusCircle, Search } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, Download, PlusCircle, Search, Receipt } from 'lucide-react';
 
 interface Transaction {
   id: number;
@@ -9,6 +9,7 @@ interface Transaction {
   amount: number;
   description: string;
   child_name: string | null;
+  receipt_url: string | null;
   created_at: string;
 }
 
@@ -17,6 +18,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     type: 'income',
     amount: '',
@@ -54,11 +57,43 @@ export default function Dashboard() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setUploading(true);
     
+    let receiptUrl = null;
+    
+    // Если есть файл — загружаем его
+    if (selectedFile) {
+      const fileFormData = new FormData();
+      fileFormData.append('file', selectedFile);
+      
+      try {
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: fileFormData
+        });
+        
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          receiptUrl = uploadData.url;
+        } else {
+          console.error('Upload failed');
+        }
+      } catch (error) {
+        console.error('Upload error:', error);
+      }
+    }
+    
+    // Сохраняем транзакцию
     const res = await fetch('/api/transactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
+      body: JSON.stringify({
+        type: formData.type,
+        amount: formData.amount,
+        description: formData.description,
+        child_name: formData.child_name,
+        receipt_url: receiptUrl
+      })
     });
     
     if (res.ok) {
@@ -66,9 +101,12 @@ export default function Dashboard() {
       setTransactions([newTransaction, ...transactions]);
       setShowForm(false);
       setFormData({ type: 'income', amount: '', description: '', child_name: '' });
+      setSelectedFile(null);
     } else {
       alert('Ошибка при сохранении');
     }
+    
+    setUploading(false);
   };
 
   if (loading) {
@@ -84,7 +122,7 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
           <div>
@@ -144,7 +182,7 @@ export default function Dashboard() {
                 onChange={e => setFormData({...formData, type: e.target.value})} 
                 className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               >
-                <option value="income"> Взнос (Доход)</option>
+                <option value="income">💰 Взнос (Доход)</option>
                 <option value="expense">💸 Расход</option>
               </select>
               <input 
@@ -170,11 +208,31 @@ export default function Dashboard() {
                 onChange={e => setFormData({...formData, child_name: e.target.value})} 
                 className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
               />
+              
+              {/* File Upload */}
+              <div className="md:col-span-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  📎 Чек (фото или PDF, необязательно)
+                </label>
+                <input 
+                  type="file" 
+                  accept="image/*,.pdf"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+                {selectedFile && (
+                  <p className="text-sm text-green-600 mt-1">
+                    ✅ Выбран файл: {selectedFile.name}
+                  </p>
+                )}
+              </div>
+
               <button 
                 type="submit" 
-                className="md:col-span-4 bg-gray-900 text-white py-2 rounded-lg hover:bg-gray-800 transition mt-2"
+                disabled={uploading}
+                className="md:col-span-4 bg-gray-900 text-white py-2 rounded-lg hover:bg-gray-800 transition mt-2 disabled:opacity-50"
               >
-                Сохранить операцию
+                {uploading ? 'Загрузка...' : 'Сохранить операцию'}
               </button>
             </form>
           </div>
@@ -199,13 +257,14 @@ export default function Dashboard() {
                   <th className="p-4">Тип</th>
                   <th className="p-4">Описание</th>
                   <th className="p-4">Ребенок</th>
+                  <th className="p-4">Чек</th>
                   <th className="p-4 text-right">Сумма</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-gray-400">
+                    <td colSpan={6} className="p-8 text-center text-gray-400">
                       Нет операций
                     </td>
                   </tr>
@@ -226,6 +285,21 @@ export default function Dashboard() {
                       </td>
                       <td className="p-4 text-gray-800">{t.description}</td>
                       <td className="p-4 text-gray-500">{t.child_name || '-'}</td>
+                      <td className="p-4">
+                        {t.receipt_url ? (
+                          <a 
+                            href={t.receipt_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline text-sm flex items-center gap-1"
+                          >
+                            <Receipt size={14} />
+                            Открыть
+                          </a>
+                        ) : (
+                          <span className="text-gray-400 text-sm">-</span>
+                        )}
+                      </td>
                       <td className={`p-4 text-right font-bold ${
                         t.type === 'income' ? 'text-green-600' : 'text-red-600'
                       }`}>
