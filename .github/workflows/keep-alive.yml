@@ -22,6 +22,6 @@ jobs:
         run: |
           echo "Waking up Project 2..."
           curl -s -X GET "https://nebxaexwnoeobaxgeqkk.supabase.co/rest/v1/settings?select=key" \
-          -H "apikey: sb_publishable_5aGEBPUrfiDOR2eXIwu-Hw_BNtJv7iE" \
-          -H "Authorization: Bearer sb_publishable_5aGEBPUrfiDOR2eXIwu-Hw_BNtJv7iE" > /dev/null
+          -H "apikey: sb_publishable_f4CcRm6sMRNthrfHWpykGw_cfFqoCzj" \
+          -H "Authorization: Bearer sb_publishable_f4CcRm6sMRNthrfHWpykGw_cfFqoCzj" > /dev/null
           echo "Project 2 pinged!"
