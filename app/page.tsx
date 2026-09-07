@@ -278,17 +278,23 @@ export default function Dashboard() {
           </div>
         )}
 
-        {stats.isActivated && (
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-md p-6 mb-8 text-white">
-            <div className="flex items-center gap-3">
-              <Check size={32} />
-              <div>
-                <p className="font-bold text-xl">✅ Активирован тариф: {stats.limitType === 'unlimited' ? 'Безлимит' : stats.limit + ' записей'}</p>
-                <p className="font-medium opacity-90">Использовано: {stats.count} записей</p>
-              </div>
-            </div>
-          </div>
-        )}
+		{stats.isActivated && (
+		<div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-md p-6 mb-8 text-white">
+			<div className="flex items-center gap-3">
+			<Check size={32} />
+			<div>
+				{stats.limit === 999999 || stats.limitType === 'unlimited' ? (
+				<p className="font-bold text-xl">✅ Безлимит активирован!</p>
+				) : (
+				<>
+					<p className="font-bold text-xl">✅ Тариф на {stats.limit} записей активирован!</p>
+					<p className="font-medium opacity-90">Использовано: {stats.count} из {stats.limit}</p>
+				</>
+				)}
+			</div>
+			</div>
+		</div>
+		)}
 
         {/* Add Form */}
         {showForm && (
