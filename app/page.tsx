@@ -66,7 +66,6 @@ export default function Dashboard() {
   const [promoCode, setPromoCode] = useState('');
   const [activating, setActivating] = useState(false);
   const [activationMessage, setActivationMessage] = useState('');
-  const [showActivationBanner, setShowActivationBanner] = useState(false);
 
   useEffect(() => {
     fetch('/api/transactions')
@@ -84,14 +83,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetch('/api/stats')
       .then(res => res.json())
-      .then(data => {
-        setStats(data);
-        // Показываем баннер один раз при загрузке, если тариф активирован
-        if (data.isActivated) {
-          setShowActivationBanner(true);
-          setTimeout(() => setShowActivationBanner(false), 5000);
-        }
-      });
+      .then(data => setStats(data));
   }, []);
 
   const totalIncome = transactions
@@ -174,11 +166,6 @@ export default function Dashboard() {
       setActivationMessage('✅ ' + data.message);
       setPromoCode('');
       setStats({ ...stats, isActivated: true, limit: data.newLimit });
-      
-      // Показываем баннер на 5 секунд
-      setShowActivationBanner(true);
-      setTimeout(() => setShowActivationBanner(false), 5000);
-      
       setTimeout(() => {
         setShowActivateModal(false);
         setActivationMessage('');
@@ -188,6 +175,9 @@ export default function Dashboard() {
     }
     setActivating(false);
   };
+
+  // Показывать кнопку когда использовано больше 70% лимита
+  const showUpgradeButton = stats.count / stats.limit > 0.7;
 
   if (loading) {
     return (
@@ -252,19 +242,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Activation Banner - Shows once and disappears */}
-        {showActivationBanner && (
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-md p-6 mb-4 text-white animate-fade-in">
-            <div className="flex items-center gap-3">
-              <Check size={32} />
-              <div>
-                <p className="font-bold text-xl">✅ Активирован тариф: {stats.limitType === 'unlimited' ? 'Безлимит' : stats.limit + ' записей'}</p>
-                <p className="font-medium opacity-90">Использовано: {stats.count} записей</p>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Progress Bar - ALWAYS VISIBLE */}
         <div className="bg-white rounded-xl shadow-md border-2 border-gray-200 p-6 mb-8">
           <div className="flex justify-between items-center mb-3">
@@ -274,10 +251,10 @@ export default function Dashboard() {
                 {stats.count} из {stats.limit} записей
               </p>
             </div>
-            {!stats.isActivated && (
+            {showUpgradeButton && (
               <button
                 onClick={() => setShowTariffModal(true)}
-                className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-6 py-3 rounded-lg font-bold hover:from-yellow-600 hover:to-orange-600 transition shadow-lg"
+                className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-6 py-3 rounded-lg font-bold hover:from-yellow-600 hover:to-orange-600 transition shadow-lg animate-pulse"
               >
                 ⚡ Увеличить лимит
               </button>
