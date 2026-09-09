@@ -1,4 +1,3 @@
-import { supabase } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
@@ -10,36 +9,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Нет файла' }, { status: 400 });
     }
 
-    // Проверяем тип файла (только изображения)
-    if (!file.type.startsWith('image/')) {
-      return NextResponse.json({ error: 'Только изображения' }, { status: 400 });
+    // Проверяем размер (макс 32 МБ для ImgBB)
+    if (file.size > 32 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Файл слишком большой (макс 32 МБ)' }, { status: 400 });
     }
 
-    // Генерируем уникальное имя файла
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    // Преобразуем файл в base64
+    const bytes = await file.arrayBuffer();
+    const base64 = Buffer.from(bytes).toString('base64');
 
-    // Загружаем в Supabase Storage
-    const { data, error: uploadError } = await supabase
-      .storage
-      .from('receipts')
-      .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
+    // Отправляем в ImgBB
+    const imgbbFormData = new FormData();
+    imgbbFormData.append('image', base64);
+    imgbbFormData.append('key', process.env.IMGBB_API_KEY || '');
+    imgbbFormData.append('name', `receipt_${Date.now()}`);
 
-    if (uploadError) throw uploadError;
+    const response = await fetch('https://api.imgbb.com/1/upload', {
+      method: 'POST',
+      body: imgbbFormData,
+    });
 
-    // Получаем публичную ссылку
-    const { data: { publicUrl } } = supabase
-      .storage
-      .from('receipts')
-      .getPublicUrl(fileName);
+    const data = await response.json();
 
-    return NextResponse.json({ 
-      success: true, 
-      url: publicUrl,
-      fileName: fileName
+    if (!data.success) {
+      throw new Error(data.error?.message || 'Upload failed');
+    }
+
+    return NextResponse.json({
+      success: true,
+      url: data.data.url, // Прямая ссылка на изображение
+      thumbUrl: data.data.thumb?.url || data.data.url, // Миниатюра
+      fileName: data.data.title || file.name
     });
   } catch (error) {
     console.error('Upload error:', error);
