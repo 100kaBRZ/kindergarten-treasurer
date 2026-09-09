@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/db';
 import { NextResponse } from 'next/server';
+import { supabase } from '@/lib/db';
 
 export async function GET() {
   try {
@@ -14,7 +14,7 @@ export async function GET() {
       .limit(1)
       .single();
 
-    const currentLimit = activated?.limit_value || 50;
+    const currentLimit = activated?.limit_value || 3; // По умолчанию 3 для теста
     const isActivated = !!activated;
 
     return NextResponse.json({
