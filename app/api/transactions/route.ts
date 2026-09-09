@@ -18,44 +18,16 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { data: activated } = await supabase
-      .from('promo_codes')
-      .select('limit_value')
-      .eq('is_used', true)
-      .limit(1)
-      .single();
-
-    let currentLimit = 50;
-    
-    if (activated) {
-      currentLimit = activated.limit_value;
-    }
-
-    const { count } = await supabase
-      .from('transactions')
-      .select('*', { count: 'exact', head: true });
-
-    const currentCount = count || 0;
-
-    if (currentCount >= currentLimit) {
-      return NextResponse.json(
-        { 
-          error: 'LIMIT_REACHED', 
-          currentLimit,
-          currentCount 
-        },
-        { status: 403 }
-      );
-    }
-
     const body = await request.json();
+    
     const { data, error } = await supabase
       .from('transactions')
       .insert([{
         type: body.type,
         amount: parseFloat(body.amount),
         description: body.description,
-        child_name: body.child_name || null
+        child_name: body.child_name || null,
+        receipt_url: body.receipt_url || null
       }])
       .select()
       .single();
