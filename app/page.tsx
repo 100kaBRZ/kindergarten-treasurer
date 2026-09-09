@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Wallet, TrendingUp, TrendingDown, Download, PlusCircle, Search, X, Check, Zap, Star, Crown, Image as ImageIcon } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, Download, PlusCircle, Search, X, Check, Zap, Star, Crown, ImageIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface Transaction {
@@ -67,6 +67,7 @@ export default function Dashboard() {
   const [promoCode, setPromoCode] = useState('');
   const [activating, setActivating] = useState(false);
   const [activationMessage, setActivationMessage] = useState('');
+  // Состояния для загрузки чеков
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [viewReceiptUrl, setViewReceiptUrl] = useState<string | null>(null);
@@ -111,6 +112,7 @@ export default function Dashboard() {
     
     let receiptUrl = null;
     
+    // Загрузка чека только для расходов
     if (formData.type === 'expense' && selectedFile) {
       const fileFormData = new FormData();
       fileFormData.append('file', selectedFile);
@@ -124,6 +126,8 @@ export default function Dashboard() {
         if (uploadRes.ok) {
           const uploadData = await uploadRes.json();
           receiptUrl = uploadData.url;
+        } else {
+          console.error('Upload failed');
         }
       } catch (error) {
         console.error('Upload error:', error);
@@ -275,7 +279,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Progress Bar - ALWAYS VISIBLE */}
+        {/* Progress Bar */}
         <div className="bg-white rounded-xl shadow-md border-2 border-gray-200 p-6 mb-8">
           <div className="flex justify-between items-center mb-3">
             <div>
@@ -284,12 +288,14 @@ export default function Dashboard() {
                 {stats.count} из {stats.limit} записей
               </p>
             </div>
-            <button
-              onClick={() => setShowTariffModal(true)}
-              className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-6 py-3 rounded-lg font-bold hover:from-yellow-600 hover:to-orange-600 transition shadow-lg"
-            >
-              ⚡ Увеличить лимит
-            </button>
+            {stats.count / stats.limit > 0.7 && (
+              <button
+                onClick={() => setShowTariffModal(true)}
+                className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-6 py-3 rounded-lg font-bold hover:from-yellow-600 hover:to-orange-600 transition shadow-lg animate-pulse"
+              >
+                ⚡ Увеличить лимит
+              </button>
+            )}
           </div>
           <div className="w-full bg-gray-200 rounded-full h-4">
             <div 
@@ -316,7 +322,7 @@ export default function Dashboard() {
                 className="p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
               >
                 <option value="income">💰 Взнос (Доход)</option>
-                <option value="expense">💸 Расход</option>
+                <option value="expense"> Расход</option>
               </select>
               <input 
                 type="number" 
@@ -342,7 +348,7 @@ export default function Dashboard() {
                 className="p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900 placeholder-gray-500"
               />
               
-              {/* Receipt Upload - Only for expenses */}
+              {/* Загрузка чека - только для расходов */}
               {formData.type === 'expense' && (
                 <div className="md:col-span-4">
                   <label className="block text-sm font-bold text-gray-900 mb-2">
@@ -494,7 +500,7 @@ export default function Dashboard() {
           <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 overflow-y-auto">
             <div className="bg-white rounded-xl max-w-4xl w-full p-6 my-8">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900"> Выберите тариф</h3>
+                <h3 className="text-2xl font-bold text-gray-900">🚀 Выберите тариф</h3>
                 <button 
                   onClick={() => setShowTariffModal(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition"
