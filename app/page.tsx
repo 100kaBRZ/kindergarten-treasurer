@@ -60,12 +60,13 @@ export default function Dashboard() {
     description: '',
     child_name: ''
   });
-  const [stats, setStats] = useState<Stats>({ count: 0, limit: 3, isActivated: false, limitType: 'free' });
+  const [stats, setStats] = useState<Stats>({ count: 0, limit: 50, isActivated: false, limitType: 'free' });
   const [showTariffModal, setShowTariffModal] = useState(false);
   const [showActivateModal, setShowActivateModal] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [activating, setActivating] = useState(false);
   const [activationMessage, setActivationMessage] = useState('');
+  const [showActivationBanner, setShowActivationBanner] = useState(false);
 
   useEffect(() => {
     fetch('/api/transactions')
@@ -83,7 +84,14 @@ export default function Dashboard() {
   useEffect(() => {
     fetch('/api/stats')
       .then(res => res.json())
-      .then(data => setStats(data));
+      .then(data => {
+        setStats(data);
+        // Показываем баннер один раз при загрузке, если тариф активирован
+        if (data.isActivated) {
+          setShowActivationBanner(true);
+          setTimeout(() => setShowActivationBanner(false), 5000);
+        }
+      });
   }, []);
 
   const totalIncome = transactions
@@ -166,6 +174,11 @@ export default function Dashboard() {
       setActivationMessage('✅ ' + data.message);
       setPromoCode('');
       setStats({ ...stats, isActivated: true, limit: data.newLimit });
+      
+      // Показываем баннер на 5 секунд
+      setShowActivationBanner(true);
+      setTimeout(() => setShowActivationBanner(false), 5000);
+      
       setTimeout(() => {
         setShowActivateModal(false);
         setActivationMessage('');
@@ -239,40 +252,9 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Progress Bar */}
-        {!stats.isActivated && (
-          <div className="bg-white rounded-xl shadow-md border-2 border-gray-200 p-6 mb-8">
-            <div className="flex justify-between items-center mb-3">
-              <div>
-                <p className="font-bold text-gray-900 text-lg"> Использование лимита</p>
-                <p className="text-gray-600 font-medium">
-                  {stats.count} из {stats.limit} записей
-                </p>
-              </div>
-              <button
-                onClick={() => setShowTariffModal(true)}
-                className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-6 py-3 rounded-lg font-bold hover:from-yellow-600 hover:to-orange-600 transition shadow-lg"
-              >
-                 Увеличить лимит
-              </button>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-4">
-              <div 
-                className={`h-4 rounded-full transition-all ${
-                  stats.count / stats.limit > 0.9 ? 'bg-red-500' : 
-                  stats.count / stats.limit > 0.7 ? 'bg-yellow-500' : 'bg-green-500'
-                }`}
-                style={{ width: `${Math.min((stats.count / stats.limit) * 100, 100)}%` }}
-              ></div>
-            </div>
-            <p className="text-sm text-gray-600 mt-2 font-medium">
-              Осталось: {Math.max(stats.limit - stats.count, 0)} записей
-            </p>
-          </div>
-        )}
-
-        {stats.isActivated && (
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-md p-6 mb-8 text-white">
+        {/* Activation Banner - Shows once and disappears */}
+        {showActivationBanner && (
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-md p-6 mb-4 text-white animate-fade-in">
             <div className="flex items-center gap-3">
               <Check size={32} />
               <div>
@@ -282,6 +264,38 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* Progress Bar - ALWAYS VISIBLE */}
+        <div className="bg-white rounded-xl shadow-md border-2 border-gray-200 p-6 mb-8">
+          <div className="flex justify-between items-center mb-3">
+            <div>
+              <p className="font-bold text-gray-900 text-lg">📊 Использование лимита</p>
+              <p className="text-gray-600 font-medium">
+                {stats.count} из {stats.limit} записей
+              </p>
+            </div>
+            {!stats.isActivated && (
+              <button
+                onClick={() => setShowTariffModal(true)}
+                className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-6 py-3 rounded-lg font-bold hover:from-yellow-600 hover:to-orange-600 transition shadow-lg"
+              >
+                ⚡ Увеличить лимит
+              </button>
+            )}
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-4">
+            <div 
+              className={`h-4 rounded-full transition-all ${
+                stats.count / stats.limit > 0.9 ? 'bg-red-500' : 
+                stats.count / stats.limit > 0.7 ? 'bg-yellow-500' : 'bg-green-500'
+              }`}
+              style={{ width: `${Math.min((stats.count / stats.limit) * 100, 100)}%` }}
+            ></div>
+          </div>
+          <p className="text-sm text-gray-600 mt-2 font-medium">
+            Осталось: {Math.max(stats.limit - stats.count, 0)} записей
+          </p>
+        </div>
 
         {/* Add Form */}
         {showForm && (
@@ -294,7 +308,7 @@ export default function Dashboard() {
                 className="p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
               >
                 <option value="income">💰 Взнос (Доход)</option>
-                <option value="expense"> Расход</option>
+                <option value="expense">💸 Расход</option>
               </select>
               <input 
                 type="number" 
