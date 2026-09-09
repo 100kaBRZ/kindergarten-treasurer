@@ -20,7 +20,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { type, amount, description, child_name } = body;
+    const { type, amount, description, child_name, receipt_url } = body;
 
     if (!type || !amount || !description) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -38,11 +38,11 @@ export async function POST(request: Request) {
       .limit(1)
       .single();
 
-    const currentLimit = activated?.limit_value || 3; // По умолчанию 3 для теста
+    const currentLimit = activated?.limit_value || 3;
 
     if (count !== null && count >= currentLimit) {
       return NextResponse.json(
-        { error: 'LIMIT_REACHED', message: `Лимит записей (${currentLimit}) достигнут. Активируйте тариф для увеличения лимита.` },
+        { error: 'LIMIT_REACHED', message: `Лимит записей (${currentLimit}) достигнут.` },
         { status: 403 }
       );
     }
@@ -53,7 +53,8 @@ export async function POST(request: Request) {
         type,
         amount: parseFloat(amount),
         description,
-        child_name: child_name || null
+        child_name: child_name || null,
+        receipt_url: receipt_url || null
       }])
       .select()
       .single();
