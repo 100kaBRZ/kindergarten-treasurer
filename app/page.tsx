@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Wallet, TrendingUp, TrendingDown, Download, PlusCircle, Search, X, Check, Zap, Star, Crown } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, Download, PlusCircle, Search, X, Check, Zap, Star, Crown, ImageIcon } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface Transaction {
@@ -9,6 +9,7 @@ interface Transaction {
   amount: number;
   description: string;
   child_name: string | null;
+  receipt_url: string | null;
   created_at: string;
 }
 
@@ -66,6 +67,10 @@ export default function Dashboard() {
   const [promoCode, setPromoCode] = useState('');
   const [activating, setActivating] = useState(false);
   const [activationMessage, setActivationMessage] = useState('');
+  // Состояния для загрузки чеков
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [viewReceiptUrl, setViewReceiptUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/transactions')
@@ -103,16 +108,44 @@ export default function Dashboard() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setUploading(true);
+    
+    let receiptUrl = null;
+    
+    // Загрузка чека только для расходов
+    if (formData.type === 'expense' && selectedFile) {
+      const fileFormData = new FormData();
+      fileFormData.append('file', selectedFile);
+      
+      try {
+        const uploadRes = await fetch('/api/upload', {
+          method: 'POST',
+          body: fileFormData
+        });
+        
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          receiptUrl = uploadData.url;
+        }
+      } catch (error) {
+        console.error('Upload error:', error);
+      }
+    }
+    
     const res = await fetch('/api/transactions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
+      body: JSON.stringify({
+        ...formData,
+        receipt_url: receiptUrl
+      })
     });
     
     if (res.status === 403) {
       const errorData = await res.json();
       if (errorData.error === 'LIMIT_REACHED') {
         setShowTariffModal(true);
+        setUploading(false);
         return;
       }
     }
@@ -122,10 +155,13 @@ export default function Dashboard() {
       setTransactions([newTransaction, ...transactions]);
       setShowForm(false);
       setFormData({ type: 'income', amount: '', description: '', child_name: '' });
+      setSelectedFile(null);
       setStats({ ...stats, count: stats.count + 1 });
     } else {
       alert('Ошибка при сохранении');
     }
+    
+    setUploading(false);
   };
 
   const exportToExcel = () => {
@@ -135,7 +171,8 @@ export default function Dashboard() {
       'Тип': t.type === 'income' ? 'Доход' : 'Расход',
       'Сумма (₽)': t.amount,
       'Описание': t.description,
-      'Ребенок': t.child_name || '-'
+      'Ребенок': t.child_name || '-',
+      'Чек': t.receipt_url || 'Нет'
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -145,7 +182,8 @@ export default function Dashboard() {
       { wch: 10 },
       { wch: 12 },
       { wch: 40 },
-      { wch: 20 }
+      { wch: 20 },
+      { wch: 60 }
     ];
 
     const wb = XLSX.utils.book_new();
@@ -176,9 +214,6 @@ export default function Dashboard() {
     setActivating(false);
   };
 
-  // Показывать кнопку когда использовано больше 70% лимита
-  const showUpgradeButton = stats.count / stats.limit > 0.7;
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -196,7 +231,7 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">🏫 Казначей Детского сада</h1>
+            <h1 className="text-3xl font-bold text-gray-900"> Казначей Детского сада</h1>
             <p className="text-gray-700 font-medium mt-1">Учет взносов и расходов группы</p>
           </div>
           <div className="flex gap-2">
@@ -242,7 +277,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Progress Bar - ALWAYS VISIBLE */}
+        {/* Progress Bar */}
         <div className="bg-white rounded-xl shadow-md border-2 border-gray-200 p-6 mb-8">
           <div className="flex justify-between items-center mb-3">
             <div>
@@ -251,7 +286,7 @@ export default function Dashboard() {
                 {stats.count} из {stats.limit} записей
               </p>
             </div>
-            {showUpgradeButton && (
+            {stats.count / stats.limit > 0.7 && (
               <button
                 onClick={() => setShowTariffModal(true)}
                 className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-6 py-3 rounded-lg font-bold hover:from-yellow-600 hover:to-orange-600 transition shadow-lg animate-pulse"
@@ -310,11 +345,36 @@ export default function Dashboard() {
                 onChange={e => setFormData({...formData, child_name: e.target.value})} 
                 className="p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900 placeholder-gray-500"
               />
+              
+              {/* Загрузка чека - только для расходов */}
+              {formData.type === 'expense' && (
+                <div className="md:col-span-4">
+                  <label className="block text-sm font-bold text-gray-900 mb-2">
+                    📎 Чек (фото, необязательно)
+                  </label>
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    className="w-full p-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-medium"
+                  />
+                  {selectedFile && (
+                    <p className="text-sm text-green-700 font-medium mt-2">
+                      ✅ Выбран файл: {selectedFile.name}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Поддерживаются: JPG, PNG, WEBP (макс 32 МБ)
+                  </p>
+                </div>
+              )}
+
               <button 
                 type="submit" 
-                className="md:col-span-4 bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition font-bold"
+                disabled={uploading}
+                className="md:col-span-4 bg-gray-900 text-white py-3 rounded-lg hover:bg-gray-800 transition font-bold disabled:opacity-50"
               >
-                Сохранить операцию
+                {uploading ? 'Загрузка...' : 'Сохранить операцию'}
               </button>
             </form>
           </div>
@@ -339,13 +399,14 @@ export default function Dashboard() {
                   <th className="p-4 font-bold">Тип</th>
                   <th className="p-4 font-bold">Описание</th>
                   <th className="p-4 font-bold">Ребенок</th>
+                  <th className="p-4 font-bold">Чек</th>
                   <th className="p-4 text-right font-bold">Сумма</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-gray-600 font-medium">
+                    <td colSpan={6} className="p-8 text-center text-gray-600 font-medium">
                       Нет операций
                     </td>
                   </tr>
@@ -366,6 +427,19 @@ export default function Dashboard() {
                       </td>
                       <td className="p-4 text-gray-900 font-medium">{t.description}</td>
                       <td className="p-4 text-gray-800 font-medium">{t.child_name || '-'}</td>
+                      <td className="p-4 text-center">
+                        {t.receipt_url ? (
+                          <button
+                            onClick={() => setViewReceiptUrl(t.receipt_url)}
+                            className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 mx-auto"
+                          >
+                            <ImageIcon size={16} />
+                            <span className="text-sm">Просмотр</span>
+                          </button>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
                       <td className={`p-4 text-right font-bold text-lg ${
                         t.type === 'income' ? 'text-green-700' : 'text-red-700'
                       }`}>
@@ -378,6 +452,46 @@ export default function Dashboard() {
             </table>
           </div>
         </div>
+
+        {/* Receipt Modal */}
+        {viewReceiptUrl && (
+          <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+              <div className="flex justify-between items-center p-4 border-b-2">
+                <h3 className="text-xl font-bold text-gray-900">📎 Чек</h3>
+                <button 
+                  onClick={() => setViewReceiptUrl(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              <div className="p-4">
+                <img 
+                  src={viewReceiptUrl} 
+                  alt="Чек" 
+                  className="w-full h-auto rounded-lg"
+                />
+              </div>
+              <div className="p-4 border-t-2 flex justify-end gap-2">
+                <a 
+                  href={viewReceiptUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
+                >
+                  Открыть в новой вкладке
+                </a>
+                <button 
+                  onClick={() => setViewReceiptUrl(null)}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg font-medium hover:bg-gray-300 transition"
+                >
+                  Закрыть
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tariff Selection Modal */}
         {showTariffModal && (
