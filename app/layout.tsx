@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Казначей Детского сада №7",
-  description: "Учет взносов и расходов группы "Непоседы"",
+  description: "Учет взносов и расходов группы Непоседы",
 };
 
 export default function RootLayout({
