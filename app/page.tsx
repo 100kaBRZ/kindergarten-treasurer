@@ -283,7 +283,6 @@ export default function Dashboard() {
         </div>
 
         {/* Progress Bar */}
-        {!stats.isActivated && (
           <div className="bg-white rounded-xl shadow-md border-2 border-gray-200 p-6 mb-8">
             <div className="flex justify-between items-center mb-3">
               <div>
@@ -312,19 +311,6 @@ export default function Dashboard() {
               Осталось: {Math.max(stats.limit - stats.count, 0)} записей
             </p>
           </div>
-        )}
-
-        {stats.isActivated && (
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-md p-6 mb-8 text-white">
-            <div className="flex items-center gap-3">
-              <Check size={32} />
-              <div>
-                <p className="font-bold text-xl">✅ Активирован тариф: {stats.limitType === 'unlimited' ? 'Безлимит' : stats.limit + ' записей'}</p>
-                <p className="font-medium opacity-90">Использовано: {stats.count} записей</p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Add Form */}
         {showForm && (
